@@ -1,0 +1,13 @@
+services:
+  airflow:
+    build: .
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./spatial_data:/opt/airflow/spatial_data
+    ports:
+      - "8080:8080"
+    command: standalone

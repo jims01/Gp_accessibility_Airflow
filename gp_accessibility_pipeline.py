@@ -26,8 +26,8 @@ def get_engine() -> Engine:
 
 def extract_wards(place: str) -> gpd.GeoDataFrame:
     """Fetch ward boundaries for a place, reprojected to British National Grid."""
-    wards = gpd.read_file("/mnt/c/Users/ajayi/Desktop/spatial/Wards_December_2023_Boundaries_UK_BGC_-5149544542375210439.geojson")
-    la = gpd.read_file("/mnt/c/Users/ajayi/Desktop/spatial/Local_Authority_Districts_December_2023_Boundaries_UK_BUC_1184848993647424420.geojson")
+    wards = gpd.read_file("/opt/airflow/spatial_data/Wards_December_2023_Boundaries_UK_BGC_-5149544542375210439.geojson")
+    la = gpd.read_file("/opt/airflow/spatial_data/Local_Authority_Districts_December_2023_Boundaries_UK_BUC_1184848993647424420.geojson")
 
     place_boundary = la[la["LAD23NM"] == place]
     if len(place_boundary) == 0:
