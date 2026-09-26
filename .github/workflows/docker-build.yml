@@ -11,3 +11,6 @@ jobs:
 
       - name: Build the Docker image
         run: docker build -t gp-accessibility-pipeline .
+
+      - name: Smoke test - Airflow can initialize
+        run: docker run --rm gp-accessibility-pipeline airflow db check
