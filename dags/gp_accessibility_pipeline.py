@@ -1,20 +1,29 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from datetime import datetime
 from urllib.parse import quote_plus
 
+import boto3
 import geopandas as gpd
 import osmnx as ox
 import pandas as pd
 import pendulum
 from airflow.decorators import dag, task
-from dotenv import load_dotenv
 from sqlalchemy import Engine, create_engine, text
+
+S3_BUCKET = "adebayo-gp-pipeline-data-2026"
+WARDS_KEY = "spatial/Wards_December_2023_Boundaries_UK_BGC_-5149544542375210439.geojson"
+LA_KEY = "spatial/Local_Authority_Districts_December_2023_Boundaries_UK_BUC_1184848993647424420.geojson"
+
+
+def download_from_s3(key: str, local_path: str) -> None:
+    s3 = boto3.client("s3")
+    s3.download_file(S3_BUCKET, key, local_path)
 
 
 def get_engine() -> Engine:
-    load_dotenv("/mnt/c/Users/ajayi/geojson/.env")
     db_password = os.environ["DB_PASSWORD"]
     safe_password = quote_plus(db_password)
     connection_string = (
@@ -25,9 +34,14 @@ def get_engine() -> Engine:
 
 
 def extract_wards(place: str) -> gpd.GeoDataFrame:
-    """Fetch ward boundaries for a place, reprojected to British National Grid."""
-    wards = gpd.read_file("/opt/airflow/spatial_data/Wards_December_2023_Boundaries_UK_BGC_-5149544542375210439.geojson")
-    la = gpd.read_file("/opt/airflow/spatial_data/Local_Authority_Districts_December_2023_Boundaries_UK_BUC_1184848993647424420.geojson")
+    """Fetch ward boundaries for a place from S3, reprojected to British National Grid."""
+    with tempfile.TemporaryDirectory() as tmp:
+        wards_path = os.path.join(tmp, "wards.geojson")
+        la_path = os.path.join(tmp, "la.geojson")
+        download_from_s3(WARDS_KEY, wards_path)
+        download_from_s3(LA_KEY, la_path)
+        wards = gpd.read_file(wards_path)
+        la = gpd.read_file(la_path)
 
     place_boundary = la[la["LAD23NM"] == place]
     if len(place_boundary) == 0:
@@ -152,6 +166,8 @@ def gp_accessibility_pipeline():
         ward_boundaries = ward_boundaries.rename_geometry("geom")
         ward_boundaries = ward_boundaries[["wd23cd", "ward_name", "local_authority", "geom"]]
         engine = get_engine()
+        with engine.begin() as conn:
+            conn.execute(text("TRUNCATE TABLE staging_wards"))
         ward_boundaries.to_postgis("staging_wards", engine, if_exists="append", index=False)
 
     @task
@@ -161,6 +177,8 @@ def gp_accessibility_pipeline():
         gp_location = gp_location[["geometry"]]
         gp_location = gp_location.rename_geometry("geom")
         engine = get_engine()
+        with engine.begin() as conn:
+            conn.execute(text("TRUNCATE TABLE staging_gp_locations"))
         gp_location.to_postgis("staging_gp_locations", engine, if_exists="append", index=False)
 
     @task
@@ -192,7 +210,6 @@ def gp_accessibility_pipeline():
         engine = get_engine()
         load_fact_gp_counts(record, engine)
 
-    # --- wiring: your dependency graph, made real ---
     t1 = run_extract_staging_wards()
     t2 = run_extract_staging_gp_locations()
     t3 = run_syncing_ward()

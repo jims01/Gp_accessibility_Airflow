@@ -5,6 +5,9 @@ services:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
       - DB_PASSWORD=${DB_PASSWORD}
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_DEFAULT_REGION
     volumes:
       - ./dags:/opt/airflow/dags
       - ./spatial_data:/opt/airflow/spatial_data

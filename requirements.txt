@@ -2,3 +2,4 @@ geopandas
 osmnx
 psycopg2-binary
 geoalchemy2
+boto3
